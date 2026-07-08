@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>黄石站 · 故障汇报助手</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #1a1d24;
+    --border: #2a2e38;
+    --text: #e8eaf0;
+    --text-dim: #7a7f8a;
+    --amber: #f0a030;
+    --amber-dim: #8a6518;
+    --amber-glow: rgba(240, 160, 48, 0.15);
+    --red: #e04440;
+    --green: #3ab07a;
+    --radius: 10px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .app {
+    max-width: 720px;
+    width: 100%;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 28px 0 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+    position: relative;
+  }
+  .header::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 25%;
+    width: 50%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  }
+  .header .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: var(--amber);
+    border: 1px solid var(--amber-dim);
+    border-radius: 4px;
+    padding: 2px 12px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .header h1 span { color: var(--amber); }
+
+  /* Voice Button */
+  .voice-section {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .mic-btn {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--panel);
+    color: var(--text-dim);
+    font-size: 32px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    outline: none;
+  }
+  .mic-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .mic-btn.listening {
+    border-color: var(--red);
+    color: var(--red);
+    background: rgba(224, 68, 64, 0.08);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .mic-btn.has-result {
+    border-color: var(--green);
+    color: var(--green);
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(224,68,64,0.3); }
+    50% { box-shadow: 0 0 0 16px rgba(224,68,64,0); }
+  }
+  .mic-label {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    transition: color 0.3s;
+  }
+  .mic-label.active { color: var(--red); }
+  .mic-label.done { color: var(--green); }
+
+  /* Recognized Text */
+  .recog-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    min-height: 52px;
+    font-size: 15px;
+    line-height: 1.6;
+    transition: border-color 0.3s;
+  }
+  .recog-box:focus {
+    outline: none;
+    border-color: var(--amber);
+  }
+  .recog-box .placeholder {
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  /* Panels */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .panel-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .field-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .field-row label {
+    font-size: 13px;
+    color: var(--text-dim);
+    min-width: 56px;
+  }
+  .field-row select,
+  .field-row input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+    flex: 1;
+    min-width: 120px;
+  }
+  .field-row select:focus,
+  .field-row input:focus {
+    border-color: var(--amber);
+  }
+  .field-row select option { background: var(--bg); }
+
+  /* Reclosing chips */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .chip:hover { border-color: var(--amber); color: var(--amber); }
+  .chip.selected {
+    background: var(--amber-glow);
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  /* Report Output */
+  .report-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    font-size: 14px;
+    line-height: 1.8;
+    min-height: 120px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--text);
+    margin-bottom: 12px;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .report-box .label-line {
+    color: var(--amber);
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  .report-box .time-placeholder {
+    color: var(--amber-dim);
+    cursor: text;
+  }
+  .report-box:focus { outline: none; }
+
+  .btn-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    padding: 10px 24px;
+    border-radius: 6px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary {
+    background: var(--amber);
+    color: #0f1115;
+  }
+  .btn-primary:hover { background: #e8a030; }
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-secondary:hover { border-color: var(--text-dim); }
+  .btn-success {
+    background: var(--green);
+    color: #0f1115;
+  }
+  .btn-success:hover { opacity: 0.9; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 24px 0 12px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+  }
+
+  /* Error */
+  .error-msg {
+    color: var(--red);
+    font-size: 13px;
+    margin-top: 6px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* Time row */
+  .time-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .time-row select {
+    flex: 0 1 auto;
+    min-width: 56px;
+    width: auto;
+    padding: 6px 6px;
+    text-align: center;
+  }
+  .time-row span {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-right: 6px;
+  }
+
+  /* Responsive */
+  @media (max-width: 500px) {
+    .header h1 { font-size: 18px; }
+    .mic-btn { width: 64px; height: 64px; font-size: 26px; }
+    .panel { padding: 14px; }
+    .field-row { flex-direction: column; align-items: stretch; }
+    .field-row label { min-width: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <div class="header">
+    <div class="badge">E'DONG · HUANGSHI</div>
+    <h1>故障<span>汇报</span>助手</h1>
+  </div>
+
+  <!-- Voice Input -->
+  <div class="voice-section">
+    <button class="mic-btn" id="micBtn" title="点击开始语音输入">🎤</button>
+    <div class="mic-label" id="micLabel">点击话筒开始语音输入</div>
+  </div>
+
+  <!-- Recognized Text -->
+  <div class="recog-box" id="recogBox" contenteditable="true" role="textbox" aria-label="语音识别结果">
+    <span class="placeholder">语音识别结果显示在此处，也可直接编辑</span>
+  </div>
+
+  <!-- Equipment -->
+  <div class="panel">
+    <div class="panel-title">设备信息</div>
+    <div class="field-row">
+      <label>设备</label>
+      <select id="equipmentSelect">
+        <option value="">— 请选择或语音输入 —</option>
+        <option value="主变1">#1主变</option>
+        <option value="主变3">#3主变</option>
+        <option value="武黄I线">武黄I线</option>
+        <option value="武黄II线">武黄II线</option>
+        <option value="黄江I线">黄江I线</option>
+        <option value="黄江II线">黄江II线</option>
+        <option value="黄永线">黄永线</option>
+        <option value="黄磁I线">黄磁I线</option>
+        <option value="黄磁II线">黄磁II线</option>
+      </select>
+    </div>
+    <div class="field-row" id="phaseRow">
+      <label>相别</label>
+      <select id="phaseSelect">
+        <option value="三相">三相</option>
+        <option value="A相">A相</option>
+        <option value="B相">B相</option>
+        <option value="C相">C相</option>
+        <option value="AB相">AB相</option>
+        <option value="BC相">BC相</option>
+        <option value="CA相">CA相</option>
+      </select>
+    </div>
+    <div class="field-row" id="weatherRow">
+      <label>天气</label>
+      <select id="weatherSelect">
+        <option value="晴" selected>晴</option>
+        <option value="阴">阴</option>
+        <option value="多云">多云</option>
+        <option value="小雨">小雨</option>
+        <option value="大雨">大雨</option>
+        <option value="雷雨">雷雨</option>
+        <option value="下雪">下雪</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Reclosing Status (for lines only) -->
+  <div class="panel" id="reclosingPanel" style="display:none;">
+    <div class="panel-title">重合闸</div>
+    <div class="chips" id="reclosingChips">
+      <button class="chip" data-value="重合成功">成功</button>
+      <button class="chip" data-value="重合不成功">不成功</button>
+    </div>
+  </div>
+
+  <!-- Time -->
+  <div class="panel">
+    <div class="panel-title">跳闸时间</div>
+    <div class="field-row time-row">
+      <select id="selYear"></select><span>年</span>
+      <select id="selMonth"></select><span>月</span>
+      <select id="selDay"></select><span>日</span>
+      <select id="selHour"></select><span>时</span>
+      <select id="selMin"></select><span>分</span>
+    </div>
+  </div>
+
+  <!-- Report Output -->
+  <div class="panel">
+    <div class="panel-title">汇报内容</div>
+    <div class="report-box" id="reportBox" contenteditable="true" role="textbox" aria-label="生成的汇报内容"></div>
+    <div class="btn-group">
+      <button class="btn btn-primary" id="generateBtn">⟳ 生成汇报</button>
+      <button class="btn btn-success" id="copyBtn">📋 复制</button>
+      <button class="btn btn-secondary" id="clearBtn">清空</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div class="footer">鄂东黄石站 · 1000kV特高压 · 故障汇报辅助工具</div>
+</div>
+
+<script>
+(function() {
+  const STATE = {
+    equipment: "",
+    phase: "三相",
+    weather: "晴",
+    reclosing: "",
+    recogText: ""
+  };
+
+  // DOM refs
+  const micBtn       = document.getElementById("micBtn");
+  const micLabel     = document.getElementById("micLabel");
+  const recogBox     = document.getElementById("recogBox");
+  const equipSel     = document.getElementById("equipmentSelect");
+  const phaseSel     = document.getElementById("phaseSelect");
+  const weatherSel   = document.getElementById("weatherSelect");
+  const selYear      = document.getElementById("selYear");
+  const selMonth     = document.getElementById("selMonth");
+  const selDay       = document.getElementById("selDay");
+  const selHour      = document.getElementById("selHour");
+  const selMin       = document.getElementById("selMin");
+
+  const reclosingP   = document.getElementById("reclosingPanel");
+  const chips        = document.querySelectorAll("#reclosingChips .chip");
+  const reportBox    = document.getElementById("reportBox");
+  const genBtn       = document.getElementById("generateBtn");
+  const copyBtn      = document.getElementById("copyBtn");
+  const clearBtn     = document.getElementById("clearBtn");
+  const errorMsg     = document.getElementById("errorMsg");
+
+  // ============ Init Time Selects ============
+  function initTimeSelects() {
+    const now = new Date();
+    const y = now.getFullYear(), mo = now.getMonth() + 1, d = now.getDate();
+    const h = now.getHours(), mi = now.getMinutes();
+    for (let i = y - 5; i <= y + 1; i++) {
+      const opt = document.createElement("option");
+      opt.value = i; opt.textContent = i;
+      if (i === y) opt.selected = true;
+      selYear.appendChild(opt);
+    }
+    for (let i = 1; i <= 12; i++) {
+      const opt = document.createElement("option");
+      opt.value = i; opt.textContent = String(i).padStart(2,"0");
+      if (i === mo) opt.selected = true;
+      selMonth.appendChild(opt);
+    }
+    for (let i = 1; i <= 31; i++) {
+      const opt = document.createElement("option");
+      opt.value = i; opt.textContent = String(i).padStart(2,"0");
+      if (i === d) opt.selected = true;
+      selDay.appendChild(opt);
+    }
+    for (let i = 0; i <= 23; i++) {
+      const opt = document.createElement("option");
+      opt.value = i; opt.textContent = String(i).padStart(2,"0");
+      if (i === h) opt.selected = true;
+      selHour.appendChild(opt);
+    }
+    for (let i = 0; i <= 59; i++) {
+      const opt = document.createElement("option");
+      opt.value = i; opt.textContent = String(i).padStart(2,"0");
+      if (i === mi) opt.selected = true;
+      selMin.appendChild(opt);
+    }
+  }
+  initTimeSelects();
+
+  // ============ Equipment Templates ============
+  const TEMPLATES = {
+    "主变1": {
+      voltage: "1000千伏特高压黄石站#1主变",
+      switches: "黄T011、T012、5011、5012、1110、1120",
+      hasReclosing: false,
+      defaultPhase: "三相"
+    },
+    "主变3": {
+      voltage: "1000千伏特高压黄石站#3主变",
+      switches: "黄T041、T042、5051、5052、1310、1320",
+      hasReclosing: false,
+      defaultPhase: "三相"
+    },
+    "武黄I线": {
+      voltage: "1000千伏特高压黄石站1000kV武黄I线",
+      switches: "黄T012开关、黄T013开关",
+      hasReclosing: true,
+      defaultPhase: "A相"
+    },
+    "武黄II线": {
+      voltage: "1000千伏特高压黄石站1000kV武黄II线",
+      switches: "黄T021开关、黄T022开关",
+      hasReclosing: true,
+      defaultPhase: "A相"
+    },
+    "黄江I线": {
+      voltage: "1000千伏特高压黄石站1000kV黄江I线",
+      switches: "黄T023开关、黄T022开关",
+      hasReclosing: true,
+      defaultPhase: "A相"
+    },
+    "黄江II线": {
+      voltage: "1000千伏特高压黄石站1000kV黄江II线",
+      switches: "黄T051开关、黄T052开关",
+      hasReclosing: true,
+      defaultPhase: "A相"
+    },
+    "黄永线": {
+      voltage: "1000千伏特高压黄石站500kV黄永线",
+      switches: "黄5062开关、黄5063开关",
+      hasReclosing: true,
+      defaultPhase: "A相"
+    },
+    "黄磁I线": {
+      voltage: "1000千伏特高压黄石站500kV黄磁I线",
+      switches: "黄5041开关、黄5042开关",
+      hasReclosing: true,
+      defaultPhase: "A相"
+    },
+    "黄磁II线": {
+      voltage: "1000千伏特高压黄石站500kV黄磁II线",
+      switches: "黄5032开关、黄5033开关",
+      hasReclosing: true,
+      defaultPhase: "A相"
+    }
+  };
+
+  // ============ Speech Recognition ============
+  let recognition = null;
+  let listening = false;
+
+  function initRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      micBtn.disabled = true;
+      micLabel.textContent = "浏览器不支持语音识别，请使用Chrome";
+      micLabel.style.color = "var(--red)";
+      return;
+    }
+    recognition = new SR();
+    recognition.lang = "zh-CN";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+      listening = true;
+      micBtn.classList.add("listening");
+      micBtn.classList.remove("has-result");
+      micLabel.textContent = "正在聆听…";
+      micLabel.className = "mic-label active";
+    };
+
+    recognition.onresult = (e) => {
+      let text = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        text += e.results[i][0].transcript;
+      }
+      recogBox.innerHTML = text;
+      STATE.recogText = text;
+      recogBox.focus();
+      // Place cursor at end
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(recogBox);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    };
+
+    recognition.onerror = (e) => {
+      console.warn("Speech error:", e.error);
+      if (e.error === "no-speech") {
+        micLabel.textContent = "未检测到语音，请重试";
+      } else if (e.error === "not-allowed") {
+        micLabel.textContent = "麦克风权限被拒绝";
+      } else {
+        micLabel.textContent = "识别出错: " + e.error;
+      }
+      micLabel.className = "mic-label";
+      stopListening();
+    };
+
+    recognition.onend = () => {
+      stopListening();
+      if (recogBox.textContent.trim() && recogBox.textContent !== recogBox.querySelector(".placeholder")?.textContent) {
+        micBtn.classList.add("has-result");
+        micLabel.textContent = "识别完成 ✓";
+        micLabel.className = "mic-label done";
+        // Auto parse
+        parseVoiceInput(recogBox.textContent.trim());
+      } else {
+        micLabel.textContent = "点击话筒开始语音输入";
+        micLabel.className = "mic-label";
+      }
+    };
+  }
+
+  function startListening() {
+    if (!recognition) { initRecognition(); if (!recognition) return; }
+    if (listening) { recognition.stop(); return; }
+    try {
+      recognition.start();
+    } catch(e) {
+      console.warn("Restarting recognition", e);
+      setTimeout(() => { try { recognition.start(); } catch(e2) {} }, 300);
+    }
+  }
+
+  function stopListening() {
+    listening = false;
+    micBtn.classList.remove("listening");
+  }
+
+  micBtn.addEventListener("click", startListening);
+
+  // ============ Voice Parsing ============
+  function parseVoiceInput(text) {
+    if (!text) return;
+
+    // Determine equipment
+    let equip = "";
+    const eqMap = [
+      ["1号主变", "一号主变", "主变1", "主变一", "1主变"], "主变1",
+      ["3号主变", "三号主变", "主变3", "主变三", "3主变"], "主变3",
+      ["武黄1线", "武黄一", "武黄I线", "武黄一線", "武黄I"], "武黄I线",
+      ["武黄2线", "武黄二", "武黄II线", "武黄Ⅱ线", "武黄II"], "武黄II线",
+      ["黄江1线", "黄江一", "黄江I线", "黄江Ⅰ线", "黄江I"], "黄江I线",
+      ["黄江2线", "黄江二", "黄江II线", "黄江Ⅱ线", "黄江II"], "黄江II线",
+      ["黄永线", "黄永"], "黄永线",
+      ["黄磁1线", "黄磁一", "黄磁I线", "黄磁Ⅰ线", "黄磁I"], "黄磁I线",
+      ["黄磁2线", "黄磁二", "黄磁II线", "黄磁Ⅱ线", "黄磁II"], "黄磁II线"
+    ];
+    for (let i = 0; i < eqMap.length; i += 2) {
+      for (const alias of eqMap[i]) {
+        if (text.includes(alias)) {
+          equip = eqMap[i + 1];
+          break;
+        }
+      }
+      if (equip) break;
+    }
+
+    if (equip) {
+      equipSel.value = equip;
+      STATE.equipment = equip;
+      onEquipmentChange(equip);
+    }
+
+    // Determine phase
+    const phaseMap = [
+      ["三相", "三项", "3相"], "三相",
+      ["A相", "A"], "A相",
+      ["B相", "B"], "B相",
+      ["C相", "C"], "C相",
+      ["AB相", "AB", "A和B"], "AB相",
+      ["BC相", "BC", "B和C"], "BC相",
+      ["CA相", "CA", "C和A"], "CA相"
+    ];
+    let phase = "";
+    for (let i = 0; i < phaseMap.length; i += 2) {
+      for (const alias of phaseMap[i]) {
+        if (text.includes(alias)) {
+          phase = phaseMap[i + 1];
+          break;
+        }
+      }
+      if (phase) break;
+    }
+    if (phase && (!equip || !TEMPLATES[equip] || TEMPLATES[equip].hasReclosing)) {
+      phaseSel.value = phase;
+      STATE.phase = phase;
+    }
+
+    // Determine reclosing status
+    const recloseMap = [
+      ["重合成功", "成功"], "重合成功",
+      ["重合不成功", "重合不成", "不成功", "失败"], "重合不成功"
+    ];
+    for (let i = 0; i < recloseMap.length; i += 2) {
+      for (const alias of recloseMap[i]) {
+        if (text.includes(alias)) {
+          selectReclosing(recloseMap[i + 1]);
+          break;
+        }
+      }
+    }
+
+    // Determine weather
+    const weatherKeywords = ["晴", "多云", "阴", "小雨", "大雨", "雷雨", "下雪"];
+    for (const w of weatherKeywords) {
+      if (text.includes(w)) {
+        weatherSel.value = w;
+        STATE.weather = w;
+        break;
+      }
+    }
+
+    generateReport();
+  }
+
+  // ============ Equipment Change ============
+  function onEquipmentChange(equip) {
+    const tmpl = TEMPLATES[equip];
+    if (!tmpl) {
+      reclosingP.style.display = "none";
+      phaseSel.value = "三相";
+      document.getElementById("phaseRow").style.display = "";
+      return;
+    }
+    if (tmpl.hasReclosing) {
+      reclosingP.style.display = "";
+      phaseSel.value = tmpl.defaultPhase || "A相";
+      document.getElementById("phaseRow").style.display = "";
+    } else {
+      reclosingP.style.display = "none";
+      phaseSel.value = "三相";
+      document.getElementById("phaseRow").style.display = "";
+    }
+  }
+
+  equipSel.addEventListener("change", () => {
+    STATE.equipment = equipSel.value;
+    onEquipmentChange(equipSel.value);
+    generateReport();
+  });
+
+  phaseSel.addEventListener("change", () => {
+    STATE.phase = phaseSel.value;
+    generateReport();
+  });
+
+  weatherSel.addEventListener("change", () => {
+    STATE.weather = weatherSel.value;
+    generateReport();
+  });
+
+  // Reclosing Chips
+  function selectReclosing(val) {
+    STATE.reclosing = val;
+    chips.forEach(c => {
+      c.classList.toggle("selected", c.dataset.value === val);
+    });
+    generateReport();
+  }
+
+  chips.forEach(c => {
+    c.addEventListener("click", () => selectReclosing(c.dataset.value));
+  });
+
+  // Time select auto-regenerate
+  [selYear, selMonth, selDay, selHour, selMin].forEach(el => {
+    el.addEventListener("change", generateReport);
+  });
+
+  // Recog box editing
+  recogBox.addEventListener("input", () => {
+    STATE.recogText = recogBox.textContent.trim();
+  });
+
+  // ============ Generate Report ============
+  function generateReport() {
+    const equip = equipSel.value;
+    if (!equip) {
+      reportBox.innerHTML = '<span style="color:var(--text-dim);font-style:italic;">请选择设备或语音输入后生成</span>';
+      return;
+    }
+    const tmpl = TEMPLATES[equip];
+    if (!tmpl) return;
+    const phase = phaseSel.value;
+    const weather = weatherSel.value;
+
+    const pad = n => String(n).padStart(2, "0");
+    const year = selYear.value;
+    const month = pad(selMonth.value);
+    const day = pad(selDay.value);
+    const hour = pad(selHour.value);
+    const min = pad(selMin.value);
+
+    let lines = [];
+    lines.push("【鄂东黄石站设备故障汇报】");
+    let body = `初步汇报：${year}年${month}月${day}日${hour}时${min}分，${tmpl.voltage}${tmpl.switches}开关${phase}跳闸`;
+    if (tmpl.hasReclosing) {
+      const rc = STATE.reclosing;
+      if (rc) {
+        body += `，${rc}`;
+      } else {
+        body += "，重合____";
+      }
+    }
+    body += `，现场天气${weather}。`;
+    lines.push(body);
+
+    reportBox.textContent = lines.join("\n");
+    errorMsg.classList.remove("show");
+  }
+
+  genBtn.addEventListener("click", generateReport);
+
+  // ============ Copy ============
+  copyBtn.addEventListener("click", async () => {
+    const text = reportBox.textContent.trim();
+    if (!text || text.startsWith("请选择")) {
+      showError("没有可复制的内容");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      const orig = copyBtn.textContent;
+      copyBtn.textContent = "✓ 已复制";
+      setTimeout(() => copyBtn.textContent = orig, 1800);
+    } catch {
+      // Fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      const orig = copyBtn.textContent;
+      copyBtn.textContent = "✓ 已复制";
+      setTimeout(() => copyBtn.textContent = orig, 1800);
+    }
+  });
+
+  // ============ Clear ============
+  clearBtn.addEventListener("click", () => {
+    equipSel.value = "";
+    phaseSel.value = "三相";
+    weatherSel.value = "晴";
+    STATE.equipment = "";
+    STATE.phase = "三相";
+    STATE.weather = "晴";
+    STATE.reclosing = "";
+    chips.forEach(c => c.classList.remove("selected"));
+    reclosingP.style.display = "none";
+    const now = new Date();
+    selYear.value = now.getFullYear();
+    selMonth.value = now.getMonth() + 1;
+    selDay.value = now.getDate();
+    selHour.value = now.getHours();
+    selMin.value = now.getMinutes();
+    reportBox.innerHTML = '<span style="color:var(--text-dim);font-style:italic;">请选择设备或语音输入后生成</span>';
+    recogBox.innerHTML = '<span class="placeholder">语音识别结果显示在此处，也可直接编辑</span>';
+    errorMsg.classList.remove("show");
+  });
+
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.add("show");
+  }
+
+  // ============ Init ============
+  initRecognition();
+
+  // Auto-generate on load placeholder
+  reportBox.innerHTML = '<span style="color:var(--text-dim);font-style:italic;">请选择设备或语音输入后生成</span>';
+})();
+</script>
+</body>
+</html>
