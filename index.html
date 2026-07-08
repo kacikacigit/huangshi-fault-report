@@ -355,6 +355,7 @@
     <div class="field-row" id="phaseRow">
       <label>相别</label>
       <select id="phaseSelect">
+        <option value="">— 请选择 —</option>
         <option value="三相">三相</option>
         <option value="A相">A相</option>
         <option value="B相">B相</option>
@@ -367,7 +368,8 @@
     <div class="field-row" id="weatherRow">
       <label>天气</label>
       <select id="weatherSelect">
-        <option value="晴" selected>晴</option>
+        <option value="">— 请选择 —</option>
+        <option value="晴">晴</option>
         <option value="阴">阴</option>
         <option value="多云">多云</option>
         <option value="小雨">小雨</option>
@@ -782,8 +784,8 @@
     }
     const tmpl = TEMPLATES[equip];
     if (!tmpl) return;
-    const phase = phaseSel.value;
-    const weather = weatherSel.value;
+    const phase = phaseSel.value || "____";
+    const weather = weatherSel.value || "____";
 
     const pad = n => String(n).padStart(2, "0");
     const year = selYear.value;
@@ -841,11 +843,11 @@
   // ============ Clear ============
   clearBtn.addEventListener("click", () => {
     equipSel.value = "";
-    phaseSel.value = "三相";
-    weatherSel.value = "晴";
+    phaseSel.value = "";
+    weatherSel.value = "";
     STATE.equipment = "";
-    STATE.phase = "三相";
-    STATE.weather = "晴";
+    STATE.phase = "";
+    STATE.weather = "";
     STATE.reclosing = "";
     chips.forEach(c => c.classList.remove("selected"));
     reclosingP.style.display = "none";
